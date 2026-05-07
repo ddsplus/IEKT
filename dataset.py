@@ -8,13 +8,14 @@ import math
 import random
 
 class Dataset(data.Dataset):
-    def __init__(self, problem_number, concept_num, root_dir, split='train'):
+    def __init__(self, problem_number, concept_num, root_dir, split='train', seq_len=200):
         super().__init__()
         self.map_dim = 0
         self.prob_encode_dim = 0
         self.path = root_dir
         self.problem_number = problem_number
         self.concept_num = concept_num
+        self.seq_len = seq_len
         self.show_len = 100
         self.split = split
         self.data_list = []
@@ -31,8 +32,25 @@ class Dataset(data.Dataset):
     def collate(self, batch):
         seq_num, y  = [], [] 
         x = []
-        seq_length = len(batch[0][1][1]) 
+        seq_length = getattr(self, 'seq_len', 200)
         x_len = len(batch[0][1][0][0])
+        max_concepts = len(batch[0][1][0][0][2])
+
+        def zero_feature(j):
+            if j == 0 or j == 3:
+                return [0] * self.show_len
+            if j == 1:
+                return [0] * self.concept_num
+            if j == 2 or j == 5:
+                return [0] * max_concepts
+            if j == 4:
+                return [0]
+            if j == 6:
+                return 0
+            if j == 7:
+                return [[0] * self.concept_num for _ in range(max_concepts)]
+            return 0
+
         for i in range(0, seq_length):
             this_x = []
             for j in range(0, x_len):
@@ -40,10 +58,14 @@ class Dataset(data.Dataset):
             x.append(this_x)
         for data in batch:
             this_seq_num, [this_x, this_y] = data
+            this_seq_num = min(this_seq_num, seq_length)
             seq_num.append(this_seq_num)
             for i in range(0, seq_length):
                 for j in range(0, x_len):
-                    x[i][j].append(this_x[i][j])
+                    if i < len(this_x):
+                        x[i][j].append(this_x[i][j])
+                    else:
+                        x[i][j].append(zero_feature(j))
             y += this_y[0 : this_seq_num]
         batch_x, batch_y =[], []
         for i in range(0, seq_length):
@@ -144,12 +166,7 @@ class Dataset(data.Dataset):
                 real_concepts_num = 1 #避免除0报错
           
             
-            related_concept_matrix = None
-
-            if len(skills) < 5:    
-                related_concept_matrix = self.get_related_mat( skills)
-            else:
-                related_concept_matrix = 0
+            related_concept_matrix = self.get_related_mat(skills)
             
             x_list.append([
                 last_show_emb,

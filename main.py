@@ -75,7 +75,13 @@ def preprocess():
                 datasets[split] = pickle.load(f)
             log.info('Dataset split %s loaded' % split)
         else:
-            datasets[split] = Dataset(args.problem_number, args.concept_num, root_dir=args.data_dir, split=split)
+            datasets[split] = Dataset(
+                args.problem_number,
+                args.concept_num,
+                root_dir=args.data_dir,
+                split=split,
+                seq_len=args.seq_len,
+            )
             with open(file_name, 'wb') as f:
                 pickle.dump(datasets[split], f)
             log.info('Dataset split %s created and dumpped' % split)
