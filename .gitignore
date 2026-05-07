@@ -1,0 +1,10 @@
+# 忽略所有 Python 编译文件
+*.pyc
+*.pyo
+*.pyd
+
+# 忽略所有 __pycache__ 文件夹及其内容
+__pycache__/
+
+
+Data/
