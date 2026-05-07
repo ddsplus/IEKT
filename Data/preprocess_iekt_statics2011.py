@@ -5,7 +5,6 @@ Preprocess Statics2011 for IEKT.
 
 Outputs:
   - history_train.pkl
-  - history_valid.pkl
   - history_test.pkl
   - problem_skill_maxSkillOfProblem_number.pkl
 """
@@ -30,7 +29,6 @@ def parse_args():
     parser.add_argument("--min_seq_len", type=int, default=10)
     parser.add_argument("--max_concepts", type=int, default=5)
     parser.add_argument("--train_ratio", type=float, default=0.8)
-    parser.add_argument("--valid_ratio", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -96,20 +94,18 @@ def group_user_records(df, problem_to_id, skill_to_id, max_concepts):
     return grouped
 
 
-def split_users(user_ids, train_ratio, valid_ratio, seed):
-    if train_ratio <= 0 or valid_ratio <= 0 or train_ratio + valid_ratio >= 1:
-        raise ValueError("Require 0 < train_ratio, valid_ratio and train_ratio + valid_ratio < 1")
+def split_users(user_ids, train_ratio, seed):
+    if train_ratio <= 0 or train_ratio >= 1:
+        raise ValueError("Require 0 < train_ratio < 1")
     ids = list(user_ids)
     rnd = random.Random(seed)
     rnd.shuffle(ids)
     n_total = len(ids)
     n_train = int(n_total * train_ratio)
-    n_valid = int(n_total * valid_ratio)
 
     train_ids = ids[:n_train]
-    valid_ids = ids[n_train : n_train + n_valid]
-    test_ids = ids[n_train + n_valid :]
-    return train_ids, valid_ids, test_ids
+    test_ids = ids[n_train:]
+    return train_ids, test_ids
 
 
 def build_histories(user_ids, grouped, min_seq_len, max_concepts):
@@ -136,18 +132,13 @@ def main():
     grouped = group_user_records(df, problem_to_id, skill_to_id, args.max_concepts)
     user_ids = list(grouped.keys())
 
-    train_ids, valid_ids, test_ids = split_users(
-        user_ids, args.train_ratio, args.valid_ratio, args.seed
-    )
+    train_ids, test_ids = split_users(user_ids, args.train_ratio, args.seed)
 
     train_hist = build_histories(train_ids, grouped, args.min_seq_len, args.max_concepts)
-    valid_hist = build_histories(valid_ids, grouped, args.min_seq_len, args.max_concepts)
     test_hist = build_histories(test_ids, grouped, args.min_seq_len, args.max_concepts)
 
     with open(os.path.join(args.output_dir, "history_train.pkl"), "wb") as f:
         pickle.dump(train_hist, f)
-    with open(os.path.join(args.output_dir, "history_valid.pkl"), "wb") as f:
-        pickle.dump(valid_hist, f)
     with open(os.path.join(args.output_dir, "history_test.pkl"), "wb") as f:
         pickle.dump(test_hist, f)
 
@@ -162,7 +153,6 @@ def main():
     print("Statics2011 preprocess done")
     print(f"output_dir: {args.output_dir}")
     print(f"train users kept: {len(train_hist)}")
-    print(f"valid users kept: {len(valid_hist)}")
     print(f"test users kept: {len(test_hist)}")
     print(f"problem_number(with pad): {problem_number}")
     print(f"concept_number(with pad): {concept_number}")

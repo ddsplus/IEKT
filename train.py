@@ -164,11 +164,10 @@ def train(model, loaders, args):
             
 
         show_loss = loss_all / len(loaders['train'].dataset)
-        acc, auc = evaluate(model, loaders['valid'], args)
         tacc, tauc = evaluate(model, loaders['test'], args)
         log.info(
-            "Epoch: {:03d}, Loss: {:.7f}, test_auc: {:.7f}, test_acc: {:.7f}, valid_auc: {:.7f}, valid_acc: {:.7f}".format(
-                epoch, show_loss, tauc, tacc, auc, acc
+            "Epoch: {:03d}, Loss: {:.7f}, test_auc: {:.7f}, test_acc: {:.7f}".format(
+                epoch, show_loss, tauc, tacc
             )
         )
         
