@@ -166,8 +166,11 @@ def train(model, loaders, args):
         show_loss = loss_all / len(loaders['train'].dataset)
         acc, auc = evaluate(model, loaders['valid'], args)
         tacc, tauc = evaluate(model, loaders['test'], args)
-        log.info('Epoch: {:03d}, Loss: {:.7f}, valid acc: {:.7f}, valid auc: {:.7f}, test acc: {:.7f}, test auc: {:.7f}'.format(
-                        epoch, show_loss, acc, auc, tacc, tauc))
+        log.info(
+            "Epoch: {:03d}, Loss: {:.7f}, test_auc: {:.7f}, test_acc: {:.7f}, valid_auc: {:.7f}, valid_acc: {:.7f}".format(
+                epoch, show_loss, tauc, tacc, auc, acc
+            )
+        )
         
         if args.save_every > 0 and epoch % args.save_every == 0:
             torch.save(model, os.path.join(args.run_dir, 'params_%i.pt' % epoch))
