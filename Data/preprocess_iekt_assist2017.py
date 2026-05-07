@@ -61,12 +61,16 @@ def build_mappings(df):
     return problem_to_id, skill_to_id
 
 
-def group_user_records(df, problem_to_id, skill_to_id):
+def group_user_records(df, problem_to_id, skill_to_id, allow_unknown=False):
     grouped = defaultdict(list)
     for row in df.itertuples(index=False):
         uid = str(row.studentId)
-        pid = problem_to_id[row.problemId]
-        sid = skill_to_id[row.skill]
+        if allow_unknown:
+            pid = problem_to_id.get(row.problemId, 0)
+            sid = skill_to_id.get(row.skill, 0)
+        else:
+            pid = problem_to_id[row.problemId]
+            sid = skill_to_id[row.skill]
         correct = int(row.correct)
         grouped[uid].append((pid, [sid], correct))
     return grouped
@@ -106,14 +110,21 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     df = load_df(args.input_csv)
-    problem_to_id, skill_to_id = build_mappings(df)
-    grouped = group_user_records(df, problem_to_id, skill_to_id)
-    user_ids = list(grouped.keys())
-
+    user_ids = sorted(df["studentId"].unique().tolist())
     train_ids, test_ids = split_users(user_ids, args.train_ratio, args.seed)
+    train_user_set = set(train_ids)
+    test_user_set = set(test_ids)
 
-    train_hist = build_histories(train_ids, grouped, args.min_seq_len, args.max_concepts)
-    test_hist = build_histories(test_ids, grouped, args.min_seq_len, args.max_concepts)
+    train_df = df[df["studentId"].isin(train_user_set)].copy()
+    test_df = df[df["studentId"].isin(test_user_set)].copy()
+
+    # Build ID mappings using train split only.
+    problem_to_id, skill_to_id = build_mappings(train_df)
+    train_grouped = group_user_records(train_df, problem_to_id, skill_to_id, allow_unknown=False)
+    test_grouped = group_user_records(test_df, problem_to_id, skill_to_id, allow_unknown=True)
+
+    train_hist = build_histories(train_ids, train_grouped, args.min_seq_len, args.max_concepts)
+    test_hist = build_histories(test_ids, test_grouped, args.min_seq_len, args.max_concepts)
 
     with open(os.path.join(args.output_dir, "history_train.pkl"), "wb") as f:
         pickle.dump(train_hist, f)

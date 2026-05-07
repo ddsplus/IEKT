@@ -82,14 +82,18 @@ def build_mappings(df):
     return problem_to_id, skill_to_id
 
 
-def group_user_records(df, problem_to_id, skill_to_id, max_concepts):
+def group_user_records(df, problem_to_id, skill_to_id, max_concepts, allow_unknown=False):
     grouped = defaultdict(list)
     for uid, problem_key, skills, correct in df[
         ["Anon Student Id", "problem_key", "skills", "correct"]
     ].itertuples(index=False, name=None):
         uid = str(uid)
-        pid = problem_to_id[problem_key]
-        skill_ids = [skill_to_id[s] for s in skills][:max_concepts]
+        if allow_unknown:
+            pid = problem_to_id.get(problem_key, 0)
+            skill_ids = [skill_to_id.get(s, 0) for s in skills][:max_concepts]
+        else:
+            pid = problem_to_id[problem_key]
+            skill_ids = [skill_to_id[s] for s in skills][:max_concepts]
         grouped[uid].append((pid, skill_ids, correct))
     return grouped
 
@@ -128,14 +132,25 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     df = load_df(args.input_csv)
-    problem_to_id, skill_to_id = build_mappings(df)
-    grouped = group_user_records(df, problem_to_id, skill_to_id, args.max_concepts)
-    user_ids = list(grouped.keys())
-
+    user_ids = sorted(df["Anon Student Id"].unique().tolist())
     train_ids, test_ids = split_users(user_ids, args.train_ratio, args.seed)
+    train_user_set = set(train_ids)
+    test_user_set = set(test_ids)
 
-    train_hist = build_histories(train_ids, grouped, args.min_seq_len, args.max_concepts)
-    test_hist = build_histories(test_ids, grouped, args.min_seq_len, args.max_concepts)
+    train_df = df[df["Anon Student Id"].isin(train_user_set)].copy()
+    test_df = df[df["Anon Student Id"].isin(test_user_set)].copy()
+
+    # Build ID mappings using train split only.
+    problem_to_id, skill_to_id = build_mappings(train_df)
+    train_grouped = group_user_records(
+        train_df, problem_to_id, skill_to_id, args.max_concepts, allow_unknown=False
+    )
+    test_grouped = group_user_records(
+        test_df, problem_to_id, skill_to_id, args.max_concepts, allow_unknown=True
+    )
+
+    train_hist = build_histories(train_ids, train_grouped, args.min_seq_len, args.max_concepts)
+    test_hist = build_histories(test_ids, test_grouped, args.min_seq_len, args.max_concepts)
 
     with open(os.path.join(args.output_dir, "history_train.pkl"), "wb") as f:
         pickle.dump(train_hist, f)
